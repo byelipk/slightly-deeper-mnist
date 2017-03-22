@@ -112,8 +112,12 @@ with tf.name_scope("eval"):
     # For each instance determine if the highest logit corresponds to the
     # target class. Returns a 1D tensor of boolean values.
     correct = tf.nn.in_top_k(logits, y, 1)
+
+    # What percent of the predictions are correct?
     accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
 
+    # TODO: What percent of the positive cases did we catch?
+    # TODO: What percent of positive predictions were correct?
 
 # EXECUTION PHASE
 #
@@ -164,14 +168,8 @@ with tf.Session() as sess:
                 X_train, y_train, epoch, n_batches, batch_idx, batch_size)
             sess.run(training_op, feed_dict={is_training: True, X: X_batch, y: y_batch})
 
-        # What percent of the predictions are correct?
         acc_train = accuracy.eval(feed_dict={is_training: False, X: X_batch, y: y_batch})
         acc_test  = accuracy.eval(feed_dict={is_training: False, X: X_test, y: y_test})
-
-        # TODO: What percent of the positive cases did we catch?
-
-        # TODO: What percent of positive predictions were correct?
-
 
         # Update our best
         if acc_test > best_acc:
