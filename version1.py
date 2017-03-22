@@ -15,8 +15,6 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.contrib.layers           import fully_connected
-# from tensorflow.contrib.layers           import batch_norm
-# from tensorflow.contrib.layers           import dropout
 from tensorflow.contrib.framework        import arg_scope
 
 from utils.fetch_batch import *
@@ -27,20 +25,20 @@ mnist = input_data.read_data_sets("./data/")
 X_train = mnist.train.images
 y_train = mnist.train.labels.astype(np.int32)
 
-X_test = mnist.test.images
-y_test = mnist.test.labels.astype(np.int32)
+X_val = mnist.validation.images
+y_val = mnist.validation.labels.astype(np.int32)
 
 # In this version we only want to train the network on digits from 0 to 4.
 lt_five_train_idx = [idx for idx, val in enumerate(y_train) if val < 5]
-lt_five_test_idx  = [idx for idx, val in enumerate(y_test)  if val < 5]
+lt_five_val_idx  = [idx for idx, val in enumerate(y_val)  if val < 5]
 
 # Update training set and labels
 X_train = X_train[lt_five_train_idx]
 y_train = y_train[lt_five_train_idx]
 
 # Update test set and labels
-X_test = X_test[lt_five_test_idx]
-y_test = y_test[lt_five_test_idx]
+X_val = X_val[lt_five_val_idx]
+y_val = y_val[lt_five_val_idx]
 
 # CONSTRUCTION PHASE
 #
@@ -64,16 +62,6 @@ with tf.name_scope("DNN"):
     # is called "He initialization". This helps alleviate the vanishing
     # gradients problem.
     he_init = tf.contrib.layers.variance_scaling_initializer()
-
-    # Batch normalization lets the model learn the optimal scale
-    # and mean of the inputs for each layer and significantly
-    # reduces the vanishing gradients problem.
-    # batch_norm_params = {
-    #     "is_training": is_training,
-    #     "decay": 0.9,
-    #     "updates_collections": None,
-    #     "scale": None
-    # }
 
     # These arguments are applied to `fully_connected()` each time
     # it is invoked. It helps clean up our code.
@@ -106,8 +94,15 @@ with tf.name_scope("train"):
 
 
 with tf.name_scope("eval"):
+    # For each instance determine if the highest logit corresponds to the
+    # target class. Returns a 1D tensor of boolean values.
     correct = tf.nn.in_top_k(logits, y, 1)
+
+    # What percent of the predictions are correct?
     accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
+
+    # TODO: What percent of the positive cases did we catch?
+    # TODO: What percent of positive predictions were correct?
 
 
 # EXECUTION PHASE
@@ -140,7 +135,7 @@ steps_since_best_epoch = int(0)
 with tf.Session() as sess:
     init.run()
 
-    col_headers = ["Epoch", "Train acc.", "Test acc.", "Best acc.", "Decay", "Restored"]
+    col_headers = ["Epoch", "Train acc.", "Val acc.", "Best acc.", "Decay", "Restored"]
     print("{:^6} {:^10} {:^10} {:^10} {:^6} {:^8}".format(*col_headers))
     print("===================================================================")
 
@@ -161,11 +156,11 @@ with tf.Session() as sess:
 
         # Check how we're doing
         acc_train = accuracy.eval(feed_dict={X: X_batch, y: y_batch})
-        acc_test  = accuracy.eval(feed_dict={X: X_test, y: y_test})
+        acc_val  = accuracy.eval(feed_dict={X: X_val, y: y_val})
 
         # Update our best
-        if acc_test > best_acc:
-            best_acc   = acc_test
+        if acc_val > best_acc:
+            best_acc   = acc_val
             best_epoch = epoch
             best_model = saver.save(sess, "winners/v1_winner.ckpt")
             steps_since_best_epoch = int(0)
@@ -174,6 +169,6 @@ with tf.Session() as sess:
             steps_since_best_epoch += 1
 
         print("{:^6} {:<10.4f} {:<10.4f} {:<10.4f} {:^6} {:^8}".format(
-            epoch, acc_train, acc_test, best_acc, steps_since_best_epoch, restored))
+            epoch, acc_train, acc_val, best_acc, steps_since_best_epoch, restored))
 
     save_path = saver.save(sess, "results/v1_final.ckpt")
