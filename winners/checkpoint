@@ -1,2 +1,2 @@
-model_checkpoint_path: "v1_winner.ckpt"
-all_model_checkpoint_paths: "v1_winner.ckpt"
+model_checkpoint_path: "v2_winner.ckpt"
+all_model_checkpoint_paths: "v2_winner.ckpt"
