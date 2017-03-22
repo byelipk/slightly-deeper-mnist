@@ -109,6 +109,8 @@ with tf.name_scope("train"):
 
 
 with tf.name_scope("eval"):
+    # For each instance determine if the highest logit corresponds to the
+    # target class. Returns a 1D tensor of boolean values.
     correct = tf.nn.in_top_k(logits, y, 1)
     accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
 
