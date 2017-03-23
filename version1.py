@@ -160,10 +160,10 @@ steps_since_best_epoch = int(0)
 with tf.Session() as sess:
     init.run()
 
-    col_headers = ["Epoch", "Train acc.", "Val acc.", "Best acc.", "Decay", "Restored"]
+    col_headers = ["Epoch", "Tr acc", "Val acc", "Tr loss", "Val loss", "Best acc", "Decay"]
     print()
-    print("{:^6} {:^10} {:^10} {:^10} {:^6} {:^8}".format(*col_headers))
-    print("===================================================================")
+    print("{:^6} {:<10} {:<10} {:<10} {:<10} {:<10} {:^6}".format(*col_headers))
+    print("=============================================================================")
 
     for epoch in range(n_epochs):
 
@@ -184,6 +184,9 @@ with tf.Session() as sess:
         acc_train = accuracy.eval(feed_dict={X: X_batch, y: y_batch})
         acc_val  = accuracy.eval(feed_dict={X: X_val, y: y_val})
 
+        loss_train = loss.eval(feed_dict={X: X_batch, y: y_batch})
+        loss_val = loss.eval(feed_dict={X: X_val, y: y_val})
+
         # Update our best model up to this point
         if acc_val > best_acc:
             best_acc   = acc_val
@@ -194,8 +197,8 @@ with tf.Session() as sess:
             # Keep track of how long it's been since we've had a "winner" model
             steps_since_best_epoch += 1
 
-        print("{:^6} {:<10.4f} {:<10.4f} {:<10.4f} {:^6} {:^8}".format(
-            epoch, acc_train, acc_val, best_acc, steps_since_best_epoch, restored))
+        print("{:^6} {:<10.4f} {:<10.4f} {:<10.4f} {:<10.4f} {:<10.4f} {:^6}".format(
+            epoch, acc_train, acc_val, loss_train, loss_val, best_acc, steps_since_best_epoch))
 
     save_path = saver.save(sess, "results/v1_final.ckpt")
 
