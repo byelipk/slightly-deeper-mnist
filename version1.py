@@ -90,7 +90,9 @@ alpha = 0.01
 
 X = tf.placeholder(tf.float32, shape=(None, n_features), name="X")
 y = tf.placeholder(tf.int32, shape=(None), name="y")
-# is_training = tf.placeholder(tf.bool, shape=(), name="is_training")
+
+# Pass this flag into the feed dict when running batch normalization
+is_training = tf.placeholder(tf.bool, shape=(), name="is_training")
 
 with tf.name_scope("DNN"):
     # The initialization strategy for the ELU, ReLU and its variants
@@ -98,10 +100,23 @@ with tf.name_scope("DNN"):
     # gradients problem.
     he_init = tf.contrib.layers.variance_scaling_initializer()
 
+
+    # Batch normalization lets the model learn the optimal scale
+    # and mean of the inputs for each layer and significantly
+    # reduces the vanishing gradients problem.
+    batch_norm_params = {
+        "is_training": is_training,
+        "decay": 0.9,
+        "updates_collections": None,
+        "scale": None
+     }
+
     # These arguments are applied to `fully_connected()` each time
     # it is invoked. It helps clean up our code.
     with arg_scope(
         [fully_connected],
+        # normalizer_fn=batch_norm,
+        # normalizer_params=batch_norm_params,
         activation_fn=tf.nn.elu,
         weights_initializer=he_init):
 
@@ -230,7 +245,7 @@ with tf.Session() as sess:
                 X_train, y_train, epoch, n_batches, batch_idx, batch_size)
 
             # Run the graph
-            sess.run(training_op, feed_dict={X: X_batch, y: y_batch})
+            sess.run(training_op, feed_dict={is_training: True, X: X_batch, y: y_batch})
 
             # if batch_idx % 10 == 0:
             #     # Log the results to TensorBoard. We're going to watch the
@@ -247,11 +262,11 @@ with tf.Session() as sess:
             #
 
         # Check how we're doing after each epoch
-        acc_train = accuracy.eval(feed_dict={X: X_batch, y: y_batch})
-        acc_val   = accuracy.eval(feed_dict={X: X_val, y: y_val})
+        acc_train = accuracy.eval(feed_dict={is_training: False, X: X_batch, y: y_batch})
+        acc_val   = accuracy.eval(feed_dict={is_training: False, X: X_val, y: y_val})
 
-        loss_train = loss.eval(feed_dict={X: X_batch, y: y_batch})
-        loss_val   = loss.eval(feed_dict={X: X_val, y: y_val})
+        loss_train = loss.eval(feed_dict={is_training: False, X: X_batch, y: y_batch})
+        loss_val   = loss.eval(feed_dict={is_training: False, X: X_val, y: y_val})
 
         # Update our best model up to this point. If we've made
         # an improvement, then save it as the best model. Otherwise
@@ -292,9 +307,9 @@ with tf.Session() as sess:
     # val_errors = []
     #
     # for m in range(1, len(X_val)):
-    #     sess.run(training_op, feed_dict={X: X_train[:m], y: y_train[:m]})
-    #     train_errors.append(loss.eval(feed_dict={X: X_train[:m], y: y_train[:m]}))
-    #     val_errors.append(loss.eval(feed_dict={X: X_val[:m], y: y_val[:m]}))
+    #     sess.run(training_op, feed_dict={is_training: True, X: X_train[:m], y: y_train[:m]})
+    #     train_errors.append(loss.eval(feed_dict={is_training: False, X: X_train[:m], y: y_train[:m]}))
+    #     val_errors.append(loss.eval(feed_dict={is_training: False, X: X_val[:m], y: y_val[:m]}))
     #
     # print("Plotting learning curves...")
     # plt.plot(train_errors, "r-+", linewidth=2, label="train")
@@ -322,7 +337,7 @@ with tf.Session() as sess:
     X_test = X_test[lt_five_test_idx]
     y_test = y_test[lt_five_test_idx]
 
-    y_pred   = preds.eval(feed_dict={X: X_test, y: y_test})
+    y_pred   = preds.eval(feed_dict={is_training: False, X: X_test, y: y_test})
     conf_mat = tf.confusion_matrix(y_test, y_pred).eval()
 
     # A better way to evaluate the performance of a classifier is to look at
