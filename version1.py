@@ -77,7 +77,26 @@ with tf.name_scope("DNN"):
         hidden4 = fully_connected(hidden3, n_neurons, scope="hidden4")
         hidden5 = fully_connected(hidden4, n_neurons, scope="hidden5")
 
-        # The output layer
+        # The output layer (i.e. "logits") will be an (m x 5) dimensional matrix
+        # where each instance represents the output neurons of each training
+        # example after it has passed through the network.
+        #
+        # Here the first dimension, m, is the number of training examples
+        # in the batch. The second dimension is the number of output labels.
+        #
+        # In first row of the example below we can see that the network gave
+        # the strongest signal to index position 3, or digit 3.
+        #
+        # array([
+        #    [ -4.56217909,  -0.13691133,  -0.99876124,  12.67642975, -0.55929732],
+        #    [ -5.32831955,  -0.23710972,  10.90992451,  -0.27201548, -2.65590262],
+        #    [ -4.08373165,  -3.34327364,  -3.24882412,  -2.61436868, 11.48922825],
+        #    [  0.41864291,  -9.03825283,   0.4146657 ,  -6.59523439, 8.21064186],
+        #    [ -2.35521626,  -0.37815359,   9.7282629 ,   0.83002365, -2.85143971],
+        #    ...
+        #    ...
+        #    ...
+        # ])
         logits = fully_connected(hidden5, n_outputs, activation_fn=None, scope="output")
 
 
@@ -94,8 +113,10 @@ with tf.name_scope("train"):
 
 
 with tf.name_scope("eval"):
-    # For each instance determine if the highest logit corresponds to the
-    # target class. Returns a 1D tensor of boolean values.
+    # Score the model's output as correct if the True label can be found
+    # in the K-most-likely predictions. In this case we're setting K
+    # to equal 1 so we only consider a prediction correct if it is for
+    # the true label.
     correct = tf.nn.in_top_k(logits, y, 1)
 
     # What percent of the predictions are correct?
@@ -157,6 +178,7 @@ with tf.Session() as sess:
         # Check how we're doing
         acc_train = accuracy.eval(feed_dict={X: X_batch, y: y_batch})
         acc_val  = accuracy.eval(feed_dict={X: X_val, y: y_val})
+        import pdb; pdb.set_trace()
 
         # Update our best
         if acc_val > best_acc:
