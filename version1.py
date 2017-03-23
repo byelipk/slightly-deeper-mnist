@@ -25,6 +25,8 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.contrib.layers           import fully_connected
+from tensorflow.contrib.layers           import batch_norm
+from tensorflow.contrib.layers           import dropout
 from tensorflow.contrib.framework        import arg_scope
 
 from utils.fetch_batch import *
@@ -120,7 +122,15 @@ with tf.name_scope("DNN"):
         activation_fn=tf.nn.elu,
         weights_initializer=he_init):
 
-        # Our "deep" network
+        # Our "deep" network. We can add dropout if we need to by passing
+        # a tensor into the dropout function and specifying the probability
+        # certain neurons will be dropped:
+        #
+        #       X_drop = dropout(X, 0.5, is_training=is_training)
+        #
+        # Then we can pass the dropout layer into the next fully conncted
+        # layer in the network.
+        #
         hidden1 = fully_connected(X,       n_neurons, scope="hidden1")
         hidden2 = fully_connected(hidden1, n_neurons, scope="hidden2")
         hidden3 = fully_connected(hidden2, n_neurons, scope="hidden3")
