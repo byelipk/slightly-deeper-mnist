@@ -130,10 +130,6 @@ with tf.name_scope("eval"):
     # What percent of the predictions are correct?
     accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
 
-    # TODO: What percent of the positive cases did we catch?
-    # TODO: What percent of positive predictions were correct?
-
-
 # EXECUTION PHASE
 #
 #

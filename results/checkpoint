@@ -1,3 +1,3 @@
-model_checkpoint_path: "v1_final.ckpt"
-all_model_checkpoint_paths: "../winners/v1_winner.ckpt"
-all_model_checkpoint_paths: "v1_final.ckpt"
+model_checkpoint_path: "v3_final.ckpt"
+all_model_checkpoint_paths: "../winners/v3_winner.ckpt"
+all_model_checkpoint_paths: "v3_final.ckpt"

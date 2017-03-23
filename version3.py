@@ -104,7 +104,26 @@ with tf.name_scope("DNN"):
         hidden5 = fully_connected(drop4, n_neurons, scope="hidden5")
         drop5   = dropout(hidden5, 0.5, is_training=is_training)
 
-        # The output layer
+        # The output layer (i.e. "logits") will be an (m x 5) dimensional matrix
+        # where each instance represents the output neurons of each training
+        # example after it has passed through the network.
+        #
+        # Here the first dimension, m, is the number of training examples
+        # in the batch. The second dimension is the number of output labels.
+        #
+        # In first row of the example below we can see that the network gave
+        # the strongest signal to index position 3, or digit 3.
+        #
+        # array([
+        #    [ -4.56217909,  -0.13691133,  -0.99876124,  12.67642975, -0.55929732],
+        #    [ -5.32831955,  -0.23710972,  10.90992451,  -0.27201548, -2.65590262],
+        #    [ -4.08373165,  -3.34327364,  -3.24882412,  -2.61436868, 11.48922825],
+        #    [  0.41864291,  -9.03825283,   0.4146657 ,  -6.59523439, 8.21064186],
+        #    [ -2.35521626,  -0.37815359,   9.7282629 ,   0.83002365, -2.85143971],
+        #    ...
+        #    ...
+        #    ...
+        # ])
         logits = fully_connected(drop5, n_outputs, activation_fn=None, scope="output")
 
 
@@ -119,17 +138,24 @@ with tf.name_scope("train"):
     optimizer = tf.train.AdamOptimizer()
     training_op = optimizer.minimize(loss)
 
-
 with tf.name_scope("eval"):
-    # For each instance determine if the highest logit corresponds to the
-    # target class. Returns a 1D tensor of boolean values.
+    # Score the model's output as correct if the True label can be found
+    # in the K-most-likely predictions. In this case we're setting K
+    # to equal 1 so we only consider a prediction correct if it is for
+    # the true label. Returns an (m x 5) dimensional matrix of prediction
+    # values.
     correct = tf.nn.in_top_k(logits, y, 1)
+
+    # tf.argmax() is going to return the index of the largest value
+    # across axes of a tensor. This has the effect of giving us a
+    # list of the digits we've predicted. The values we want to compare
+    # are stored in the second dimension, so we need to set the axis
+    # to 1 (0 represents the first dimension).
+    preds = tf.argmax(logits, axis=1)
 
     # What percent of the predictions are correct?
     accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
 
-    # TODO: What percent of the positive cases did we catch?
-    # TODO: What percent of positive predictions were correct?
 
 # EXECUTION PHASE
 #
@@ -197,3 +223,74 @@ with tf.Session() as sess:
             epoch, acc_train, acc_val, best_acc, steps_since_best_epoch, restored))
 
     save_path = saver.save(sess, "results/v3_final.ckpt")
+
+    # Evaluate the whole model on the test set
+    from sklearn.metrics import precision_score, recall_score, f1_score
+
+    X_test = mnist.test.images
+    y_test = mnist.test.labels
+
+    lt_five_test_idx  = [idx for idx, val in enumerate(y_test)  if val < 5]
+
+    X_test = X_test[lt_five_test_idx]
+    y_test = y_test[lt_five_test_idx]
+
+    y_pred   = preds.eval(feed_dict={is_training: False, X: X_test, y: y_test})
+    conf_mat = tf.confusion_matrix(y_test, y_pred).eval()
+
+
+    print()
+    # A better way to evaluate the performance of a classifier is to look at
+    # the confusion matrix. The basic idea is to count the number of times
+    # instances of class A are classified as class B. For example, to know
+    # the number of times the classifier confused images of 5s with 3s,
+    # you would look in the 5th row and 3rd column of the confusion matrix.
+    #
+    # Each row in a confusion matrix represents an actual class, while each
+    # column represents a predicted class. Here's an example:
+    #
+    #
+    #            [[478   0   0   1   0]
+    #             [  0 559   1   1   2]
+    #             [  0   2 484   1   1]
+    #             [  1   0   1 490   1]
+    #             [  0   0   1   1 533]]
+    #
+    #
+    print("Confusion Matrix")
+    print(conf_mat)
+    print()
+
+    # The precision is the ratio tp / (tp + fp) where tp is the number of true
+    # positives and fp the number of false positives. The precision is
+    # intuitively the ability of the classifier not to label as positive a
+    # sample that is negative.
+    precision_scores = precision_score(y_test, y_pred, average=None)
+
+    # The recall is the ratio tp / (tp + fn) where tp is the number of true
+    # positives and fn the number of false negatives. The recall is intuitively
+    # the ability of the classifier to find all the positive samples.
+    recall_scores = recall_score(y_test, y_pred, average=None)
+
+    # The F1 score can be interpreted as a weighted average of the precision
+    # and recall, where an F1 score reaches its best value at 1 and worst score
+    # at 0. The relative contribution of precision and recall to the F1 score
+    # are equal. The formula for the F1 score is:
+    #
+    #       F1 = 2 * (precision * recall) / (precision + recall)
+    #
+    f1_scores = f1_score(y_test, y_pred, average=None)
+
+
+    col_headers = ["Digit", "Precision", "Recall", "F1"]
+    labels      = [0,1,2,3,4]
+
+    print("{:^12} {:^12} {:^12} {:^12}".format(*col_headers))
+    print("===================================================================")
+
+    for idx, val in enumerate(labels):
+        print("{:^12} {:^12.4f} {:^12.4f} {:^12.4f}".format(
+            labels[idx], precision_scores[idx], recall_scores[idx], f1_scores[idx]))
+
+    print()
+    print("Finished! :)")
