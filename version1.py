@@ -22,6 +22,7 @@ import os
 from datetime import datetime
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
 from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.contrib.layers           import fully_connected
 from tensorflow.contrib.framework        import arg_scope
@@ -49,8 +50,6 @@ y_train = y_train[lt_five_train_idx]
 # Update test set and labels
 X_val = X_val[lt_five_val_idx]
 y_val = y_val[lt_five_val_idx]
-
-
 
 
 
@@ -170,7 +169,7 @@ if not os.path.isdir(root_log_dir):
     os.mkdir(root_log_dir)
 
 train_loss_summary = tf.summary.scalar("train xentropy", loss)
-val_loss_summary   = tf.summary.scalar("validation xentropy", loss)
+val_loss_summary = tf.summary.scalar("validation xentropy", loss)
 summary_writer = tf.summary.FileWriter(log_dir, tf.get_default_graph())
 
 # EARLY STOPPING
@@ -183,10 +182,12 @@ summary_writer = tf.summary.FileWriter(log_dir, tf.get_default_graph())
 # the previous winner. Do this by counting the number of steps since
 # the last winner was saved, and interrupt training when this number
 # reaches some limit. Then restore the last winner snapshot.
+best_loss  = float(0)
 best_acc   = float(0)
 best_epoch = int(0)
 best_model = None # Will be path to .ckpt file
 steps_since_best_epoch = int(0)
+
 
 with tf.Session() as sess:
     init.run()
@@ -199,7 +200,7 @@ with tf.Session() as sess:
     for epoch in range(n_epochs):
 
         # Should we restore our best model?
-        if epoch % 2 == 0 and steps_since_best_epoch > 3:
+        if steps_since_best_epoch > 5:
             saver.restore(sess, best_model)
             restored = True
         else:
@@ -214,42 +215,81 @@ with tf.Session() as sess:
             # Run the graph
             sess.run(training_op, feed_dict={X: X_batch, y: y_batch})
 
-            if batch_idx % 10 == 0:
-                # Log the results to TensorBoard. We're going to watch the
-                # loss function on both the training and validation set.
-                # If we log the results too much it's going to slow down
-                # training significantly.
-                step = epoch * n_batches + batch_idx
+            # if batch_idx % 10 == 0:
+            #     # Log the results to TensorBoard. We're going to watch the
+            #     # loss function on both the training and validation set.
+            #     # If we log the results too much it's going to slow down
+            #     # training significantly.
+            #     step = epoch * n_batches + batch_idx
+            #
+            #     train_summary = train_loss_summary.eval(feed_dict={X: X_batch, y: y_batch})
+            #     val_summary   = val_loss_summary.eval(feed_dict={X: X_val, y: y_val})
+            #
+            #     summary_writer.add_summary(train_summary, step)
+            #     summary_writer.add_summary(val_summary, step)
+            #
 
-                train_summary = train_loss_summary.eval(feed_dict={X: X_batch, y: y_batch})
-                val_summary   = val_loss_summary.eval(feed_dict={X: X_val, y: y_val})
-
-                summary_writer.add_summary(train_summary, step)
-                summary_writer.add_summary(val_summary, step)
-
-        # Check how we're doing
+        # Check how we're doing after each epoch
         acc_train = accuracy.eval(feed_dict={X: X_batch, y: y_batch})
-        acc_val  = accuracy.eval(feed_dict={X: X_val, y: y_val})
+        acc_val   = accuracy.eval(feed_dict={X: X_val, y: y_val})
 
         loss_train = loss.eval(feed_dict={X: X_batch, y: y_batch})
-        loss_val = loss.eval(feed_dict={X: X_val, y: y_val})
+        loss_val   = loss.eval(feed_dict={X: X_val, y: y_val})
 
-        # Update our best model up to this point
+        # Update our best model up to this point. If we've made
+        # an improvement, then save it as the best model. Otherwise
+        # increment the number of steps it's been since we've had
+        # a winner model.
         if acc_val > best_acc:
             best_acc   = acc_val
             best_epoch = epoch
             best_model = saver.save(sess, "winners/v1_winner.ckpt")
             steps_since_best_epoch = int(0)
         else:
-            # Keep track of how long it's been since we've had a "winner" model
             steps_since_best_epoch += 1
+
+        # We also want to keep track of the best loss function value
+        if loss_val < best_loss:
+            best_loss = loss_val
+
 
         print("{:^6} {:<10.4f} {:<10.4f} {:<10.4f} {:<10.4f} {:<10.4f} {:^6}".format(
             epoch, acc_train, acc_val, loss_train, loss_val, best_acc, steps_since_best_epoch))
 
+    # We're done with training. Let's save our final model. Remember that
+    # our final model might not be our best model.
     save_path = saver.save(sess, "results/v1_final.ckpt")
 
-    # Evaluate the whole model on the test set
+    # LEARNING CURVES
+    #
+    # Since TensorBoard cannot plot learning curves, we
+    # can plot them using matplotlib. We just need
+    # to collect the training and validation errors and
+    # the number of optimization steps.
+    # print()
+    # print("Generating learning curves...")
+    #
+    # train_errors = []
+    # val_errors = []
+    #
+    # for m in range(1, len(X_val)):
+    #     sess.run(training_op, feed_dict={X: X_train[:m], y: y_train[:m]})
+    #     train_errors.append(loss.eval(feed_dict={X: X_train[:m], y: y_train[:m]}))
+    #     val_errors.append(loss.eval(feed_dict={X: X_val[:m], y: y_val[:m]}))
+    #
+    # print("Plotting learning curves...")
+    # plt.plot(train_errors, "r-+", linewidth=2, label="train")
+    # plt.plot(val_errors, "b-", linewidth=3, label="val")
+    # plt.legend(loc="upper right", fontsize=14)
+    # plt.xlabel("Training set size", fontsize=4)
+    # plt.ylabel("XEntropy", fontsize=4)
+    # plt.axis([0, len(X_val), 0, best_loss * 10])
+    # plt.savefig("images/v1_learning_curves.png")
+    # # plt.show()
+
+
+    # EVALUATE THE TEST SET
+    print("Evalutaing the test set...")
     from sklearn.metrics import precision_score, recall_score, f1_score
 
     X_test = mnist.test.images
@@ -264,7 +304,6 @@ with tf.Session() as sess:
     conf_mat = tf.confusion_matrix(y_test, y_pred).eval()
 
 
-    print()
     # A better way to evaluate the performance of a classifier is to look at
     # the confusion matrix. The basic idea is to count the number of times
     # instances of class A are classified as class B. For example, to know
@@ -282,6 +321,7 @@ with tf.Session() as sess:
     #             [  0   0   1   1 533]]
     #
     #
+    print()
     print("Confusion Matrix")
     print(conf_mat)
     print()
@@ -317,5 +357,5 @@ with tf.Session() as sess:
         print("{:^12} {:^12.4f} {:^12.4f} {:^12.4f}".format(
             labels[idx], precision_scores[idx], recall_scores[idx], f1_scores[idx]))
 
-    print()
-    print("Finished! :)")
+
+    print("Session finished! :)")

@@ -1,2 +1,5 @@
 model.ckpt*
 /utils/__pycache__
+results/
+winners/
+tf_logs/
