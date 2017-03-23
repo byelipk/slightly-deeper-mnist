@@ -11,6 +11,15 @@
 #
 # Train the network on the MNIST dataset on digits 0 to 4.
 
+# NOTE
+# In order to monitor GPU usage in real time, use the
+# watch command with the arguments below:
+#
+#       watch -n 5 nvidia-smi -a --display=utilization
+#
+
+import os
+from datetime import datetime
 import numpy as np
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
@@ -20,6 +29,7 @@ from tensorflow.contrib.framework        import arg_scope
 from utils.fetch_batch import *
 
 
+# MNIST DATA
 mnist = input_data.read_data_sets("./data/")
 
 X_train = mnist.train.images
@@ -39,6 +49,11 @@ y_train = y_train[lt_five_train_idx]
 # Update test set and labels
 X_val = X_val[lt_five_val_idx]
 y_val = y_val[lt_five_val_idx]
+
+
+
+
+
 
 # CONSTRUCTION PHASE
 #
@@ -142,7 +157,23 @@ n_epochs   = 20
 batch_size = 50
 n_batches  = int(np.ceil(m_examples / batch_size))
 
-# Early stopping
+# TENSORBOARD
+#
+saver = tf.train.Saver()
+
+# Setup log directory for Tensorboard to read from
+now = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+root_log_dir = "tf_logs"
+log_dir = "{}/run-{}".format(root_log_dir, now)
+
+if not os.path.isdir(root_log_dir):
+    os.mkdir(root_log_dir)
+
+train_loss_summary = tf.summary.scalar("train xentropy", loss)
+val_loss_summary   = tf.summary.scalar("validation xentropy", loss)
+summary_writer = tf.summary.FileWriter(log_dir, tf.get_default_graph())
+
+# EARLY STOPPING
 #
 # The basic idea is to interrupt training when its performance on
 # the validation set starts dropping.
@@ -176,9 +207,25 @@ with tf.Session() as sess:
 
         # Iterate through the batches
         for batch_idx in range(m_examples // batch_size):
+            # Find the next batch for the current epoch
             X_batch, y_batch = fetch_batch(
                 X_train, y_train, epoch, n_batches, batch_idx, batch_size)
+
+            # Run the graph
             sess.run(training_op, feed_dict={X: X_batch, y: y_batch})
+
+            if batch_idx % 10 == 0:
+                # Log the results to TensorBoard. We're going to watch the
+                # loss function on both the training and validation set.
+                # If we log the results too much it's going to slow down
+                # training significantly.
+                step = epoch * n_batches + batch_idx
+
+                train_summary = train_loss_summary.eval(feed_dict={X: X_batch, y: y_batch})
+                val_summary   = val_loss_summary.eval(feed_dict={X: X_val, y: y_val})
+
+                summary_writer.add_summary(train_summary, step)
+                summary_writer.add_summary(val_summary, step)
 
         # Check how we're doing
         acc_train = accuracy.eval(feed_dict={X: X_batch, y: y_batch})
