@@ -29,8 +29,32 @@ from tensorflow.contrib.framework        import arg_scope
 
 from utils.fetch_batch import *
 
+##################
+# DIRECTORY SETUP
+##################
 
+# Setup log directory for Tensorboard to read from
+now = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+root_log_dir = "tf_logs"
+log_dir = "{}/run-{}".format(root_log_dir, now)
+
+if not os.path.isdir(root_log_dir):
+    os.mkdir(root_log_dir)
+
+# Save the model at the end of training here:
+results_dir = "results"
+if not os.path.isdir(results_dir):
+    os.mkdir(results_dir)
+
+# Save the best model during training here:
+winner_dir = "winners"
+if not os.path.isdir(winner_dir):
+    os.mkdir(winner_dir)
+
+#############
 # MNIST DATA
+#############
+
 mnist = input_data.read_data_sets("./data/")
 
 X_train = mnist.train.images
@@ -52,12 +76,9 @@ X_val = X_val[lt_five_val_idx]
 y_val = y_val[lt_five_val_idx]
 
 
-
-
+######################
 # CONSTRUCTION PHASE
-#
-#
-#
+######################
 
 # Clear the default graph stack and reset global default graph
 tf.reset_default_graph()
@@ -122,6 +143,8 @@ with tf.name_scope("loss"):
     loss = tf.reduce_mean(entropy, name="loss")
 
 with tf.name_scope("train"):
+    # The AdamOptimzier is a very good default choice for an optimization
+    # strategy. It's much faster than gradient descent at converging.
     optimizer = tf.train.AdamOptimizer()
     training_op = optimizer.minimize(loss)
 
@@ -144,10 +167,9 @@ with tf.name_scope("eval"):
     # What percent of the predictions are correct?
     accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
 
+###################
 # EXECUTION PHASE
-#
-#
-#
+###################
 
 init = tf.global_variables_initializer()
 saver = tf.train.Saver()
@@ -156,23 +178,18 @@ n_epochs   = 20
 batch_size = 50
 n_batches  = int(np.ceil(m_examples / batch_size))
 
+###############
 # TENSORBOARD
-#
+###############
+
 saver = tf.train.Saver()
-
-# Setup log directory for Tensorboard to read from
-now = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-root_log_dir = "tf_logs"
-log_dir = "{}/run-{}".format(root_log_dir, now)
-
-if not os.path.isdir(root_log_dir):
-    os.mkdir(root_log_dir)
-
 train_loss_summary = tf.summary.scalar("train xentropy", loss)
-val_loss_summary = tf.summary.scalar("validation xentropy", loss)
-summary_writer = tf.summary.FileWriter(log_dir, tf.get_default_graph())
+val_loss_summary   = tf.summary.scalar("validation xentropy", loss)
+summary_writer     = tf.summary.FileWriter(log_dir, tf.get_default_graph())
 
+##################
 # EARLY STOPPING
+##################
 #
 # The basic idea is to interrupt training when its performance on
 # the validation set starts dropping.
@@ -188,7 +205,7 @@ best_epoch = int(0)
 best_model = None # Will be path to .ckpt file
 steps_since_best_epoch = int(0)
 
-
+# Run the graph...
 with tf.Session() as sess:
     init.run()
 
@@ -243,7 +260,7 @@ with tf.Session() as sess:
         if acc_val > best_acc:
             best_acc   = acc_val
             best_epoch = epoch
-            best_model = saver.save(sess, "winners/v1_winner.ckpt")
+            best_model = saver.save(sess, winner_dir + "/v1_winner.ckpt")
             steps_since_best_epoch = int(0)
         else:
             steps_since_best_epoch += 1
@@ -258,9 +275,11 @@ with tf.Session() as sess:
 
     # We're done with training. Let's save our final model. Remember that
     # our final model might not be our best model.
-    save_path = saver.save(sess, "results/v1_final.ckpt")
+    save_path = saver.save(sess, results_dir + "/v1_final.ckpt")
 
+    ####################
     # LEARNING CURVES
+    ####################
     #
     # Since TensorBoard cannot plot learning curves, we
     # can plot them using matplotlib. We just need
@@ -288,7 +307,10 @@ with tf.Session() as sess:
     # # plt.show()
 
 
+    #########################
     # EVALUATE THE TEST SET
+    #########################
+
     print("Evalutaing the test set...")
     from sklearn.metrics import precision_score, recall_score, f1_score
 
@@ -302,7 +324,6 @@ with tf.Session() as sess:
 
     y_pred   = preds.eval(feed_dict={X: X_test, y: y_test})
     conf_mat = tf.confusion_matrix(y_test, y_pred).eval()
-
 
     # A better way to evaluate the performance of a classifier is to look at
     # the confusion matrix. The basic idea is to count the number of times
