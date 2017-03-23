@@ -116,8 +116,16 @@ with tf.name_scope("eval"):
     # Score the model's output as correct if the True label can be found
     # in the K-most-likely predictions. In this case we're setting K
     # to equal 1 so we only consider a prediction correct if it is for
-    # the true label.
+    # the true label. Returns an (m x 5) dimensional matrix of prediction
+    # values.
     correct = tf.nn.in_top_k(logits, y, 1)
+
+    # tf.argmax() is going to return the index of the largest value
+    # across axes of a tensor. This has the effect of giving us a
+    # list of the digits we've predicted. The values we want to compare
+    # are stored in the second dimension, so we need to set the axis
+    # to 1 (0 represents the first dimension).
+    preds = tf.argmax(logits, axis=1)
 
     # What percent of the predictions are correct?
     accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
@@ -157,6 +165,7 @@ with tf.Session() as sess:
     init.run()
 
     col_headers = ["Epoch", "Train acc.", "Val acc.", "Best acc.", "Decay", "Restored"]
+    print()
     print("{:^6} {:^10} {:^10} {:^10} {:^6} {:^8}".format(*col_headers))
     print("===================================================================")
 
@@ -178,9 +187,8 @@ with tf.Session() as sess:
         # Check how we're doing
         acc_train = accuracy.eval(feed_dict={X: X_batch, y: y_batch})
         acc_val  = accuracy.eval(feed_dict={X: X_val, y: y_val})
-        import pdb; pdb.set_trace()
 
-        # Update our best
+        # Update our best model up to this point
         if acc_val > best_acc:
             best_acc   = acc_val
             best_epoch = epoch
@@ -194,3 +202,74 @@ with tf.Session() as sess:
             epoch, acc_train, acc_val, best_acc, steps_since_best_epoch, restored))
 
     save_path = saver.save(sess, "results/v1_final.ckpt")
+
+    # Evaluate the whole model on the test set
+    from sklearn.metrics import precision_score, recall_score, f1_score
+
+    X_test = mnist.test.images
+    y_test = mnist.test.labels
+
+    lt_five_test_idx  = [idx for idx, val in enumerate(y_test)  if val < 5]
+
+    X_test = X_test[lt_five_test_idx]
+    y_test = y_test[lt_five_test_idx]
+
+    y_pred   = preds.eval(feed_dict={X: X_test, y: y_test})
+    conf_mat = tf.confusion_matrix(y_test, y_pred).eval()
+
+
+    print()
+    # A better way to evaluate the performance of a classifier is to look at
+    # the confusion matrix. The basic idea is to count the number of times
+    # instances of class A are classified as class B. For example, to know
+    # the number of times the classifier confused images of 5s with 3s,
+    # you would look in the 5th row and 3rd column of the confusion matrix.
+    #
+    # Each row in a confusion matrix represents an actual class, while each
+    # column represents a predicted class. Here's an example:
+    #
+    #
+    #            [[478   0   0   1   0]
+    #             [  0 559   1   1   2]
+    #             [  0   2 484   1   1]
+    #             [  1   0   1 490   1]
+    #             [  0   0   1   1 533]]
+    #
+    #
+    print("Confusion Matrix")
+    print(conf_mat)
+    print()
+
+    # The precision is the ratio tp / (tp + fp) where tp is the number of true
+    # positives and fp the number of false positives. The precision is
+    # intuitively the ability of the classifier not to label as positive a
+    # sample that is negative.
+    precision_scores = precision_score(y_test, y_pred, average=None)
+
+    # The recall is the ratio tp / (tp + fn) where tp is the number of true
+    # positives and fn the number of false negatives. The recall is intuitively
+    # the ability of the classifier to find all the positive samples.
+    recall_scores = recall_score(y_test, y_pred, average=None)
+
+    # The F1 score can be interpreted as a weighted average of the precision
+    # and recall, where an F1 score reaches its best value at 1 and worst score
+    # at 0. The relative contribution of precision and recall to the F1 score
+    # are equal. The formula for the F1 score is:
+    #
+    #       F1 = 2 * (precision * recall) / (precision + recall)
+    #
+    f1_scores = f1_score(y_test, y_pred, average=None)
+
+
+    col_headers = ["Digit", "Precision", "Recall", "F1"]
+    labels      = [0,1,2,3,4]
+
+    print("{:^12} {:^12} {:^12} {:^12}".format(*col_headers))
+    print("===================================================================")
+
+    for idx, val in enumerate(labels):
+        print("{:^12} {:^12.4f} {:^12.4f} {:^12.4f}".format(
+            labels[idx], precision_scores[idx], recall_scores[idx], f1_scores[idx]))
+
+    print()
+    print("Finished! :)")
