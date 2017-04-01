@@ -30,6 +30,7 @@ from tensorflow.contrib.layers           import dropout
 from tensorflow.contrib.framework        import arg_scope
 
 from utils.fetch_batch import *
+from utils.make_dir import *
 
 ##################
 # DIRECTORY SETUP
@@ -39,19 +40,15 @@ from utils.fetch_batch import *
 now = datetime.utcnow().strftime("%Y%m%d%H%M%S")
 root_log_dir = "tf_logs"
 log_dir = "{}/run-{}".format(root_log_dir, now)
-
-if not os.path.isdir(root_log_dir):
-    os.mkdir(root_log_dir)
+make_dir(log_dir)
 
 # Save the model at the end of training here:
 results_dir = "results"
-if not os.path.isdir(results_dir):
-    os.mkdir(results_dir)
+make_dir(results_dir)
 
 # Save the best model during training here:
 winner_dir = "winners"
-if not os.path.isdir(winner_dir):
-    os.mkdir(winner_dir)
+make_dir(winner_dir)
 
 #############
 # MNIST DATA
