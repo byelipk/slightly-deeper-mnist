@@ -67,7 +67,7 @@ y_val = mnist.validation.labels.astype(np.int32)
 
 # In this version we only want to train the network on digits from 0 to 4.
 lt_five_train_idx = [idx for idx, val in enumerate(y_train) if val < 5]
-lt_five_val_idx  = [idx for idx, val in enumerate(y_val)  if val < 5]
+lt_five_val_idx   = [idx for idx, val in enumerate(y_val)   if val < 5]
 
 # Update training set and labels
 X_train = X_train[lt_five_train_idx]
