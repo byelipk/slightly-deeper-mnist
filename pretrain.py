@@ -35,19 +35,24 @@ from utils.make_dir import *
 ##################
 # DIRECTORY SETUP
 ##################
+import yaml
+
+file = open("config.yaml", "r")
+config = yaml.load(file)
+file.close
 
 # Setup log directory for Tensorboard to read from
 now = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-root_log_dir = "tf_logs"
+root_log_dir = config['log_root']
 log_dir = "{}/run-{}".format(root_log_dir, now)
 make_dir(log_dir)
 
 # Save the model at the end of training here:
-results_dir = "results"
+results_dir = config['results_dir']
 make_dir(results_dir)
 
 # Save the best model during training here:
-winner_dir = "winners"
+winner_dir = config['winners_dir']
 make_dir(winner_dir)
 
 #############

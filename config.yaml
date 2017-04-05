@@ -1,0 +1,3 @@
+log_root: "tf_logs"
+results_dir: "results"
+winners_dir: "winners"
